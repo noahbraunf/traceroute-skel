@@ -52,12 +52,12 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  int one = 1;
-  if (setsockopt(send_fd.get(), IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) <
-      0) {
-    FATAL << "Failed to set socket options" << ENDL;
-    return -1;
-  }
+  // int one = 1;
+  // if (setsockopt(send_fd.get(), IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) <
+  //     0) {
+  //   FATAL << "Failed to set socket options" << ENDL;
+  //   return -1;
+  // }
 
   std::array<std::uint8_t, PACKET_SIZE> send_packet{};
   send_packet.fill('S');
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   std::size_t current_ttl = STARTING_TTL;
   bool reached_dest = false;
 
-  while (current_ttl <= MAX_HOPS && !reached_dest) {
+  while (current_ttl <= (1 + MAX_HOPS) && !reached_dest) {
     fill_ip_header(send_packet, destIP, current_ttl);
     fill_icmp_header(send_packet, current_ttl);
 
@@ -96,7 +96,8 @@ int main(int argc, char *argv[]) {
               .count();
 
       if (elapsed >= static_cast<long>(TIMEOUT)) {
-        INFO << current_ttl << " x" << ENDL;
+        std::cout << current_ttl << "\tNo response with TTL of " << current_ttl
+                  << std::endl;
         break;
       }
 
@@ -139,8 +140,7 @@ int main(int argc, char *argv[]) {
           inet_ntop(AF_INET, &recv_addr.sin_addr, responder_ip.data(),
                     responder_ip.size());
 
-          std::cout << "No response with TTL of " << current_ttl << "\t"
-                    << responder_ip.data();
+          std::cout << current_ttl << "\t" << responder_ip.data();
 
           if (result.got_to_dest) {
             reached_dest = true;

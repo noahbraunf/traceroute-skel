@@ -145,8 +145,8 @@ void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
   ip->ttl = ttl; // This is what we'll increment!
   ip->protocol = IPPROTO_ICMP;
   // ip->check - kernel fills this
-  // ip->saddr - kernel fills this
-  ip->daddr = inet_addr(dest_ip.data());
+  const std::string dest_ip_s{dest_ip};
+  ip->daddr = inet_addr(dest_ip_s.c_str());
 }
 void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
                       int sequence) {
