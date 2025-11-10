@@ -16,12 +16,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-constexpr std::size_t MAX_HOPS = 30;
-constexpr std::size_t PROBES_PER_HOP = 3;
-constexpr std::uint16_t BASE_DEST_PORT = 33434;
-constexpr std::size_t RECIEVE_BUFFER_SIZE = 1000;
-constexpr std::size_t TIMEOUT = 100; // ms
-
 inline int LOG_LEVEL = 0;
 #define TRACE                                                                  \
   if (LOG_LEVEL > 5) {                                                         \
@@ -44,7 +38,5 @@ inline int LOG_LEVEL = 0;
 #define ENDL                                                                   \
   " (" << __FILE__ << ":" << __LINE__ << ")" << std::endl;                     \
   }
-
-uint16_t checksum(unsigned short *buffer, int size);
 
 #endif

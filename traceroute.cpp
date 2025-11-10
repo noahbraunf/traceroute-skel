@@ -1,22 +1,14 @@
 #include "traceroute.h"
 #include "utility.h"
-// ****************************************************************************
-// * Compute the Internet Checksum over an arbitrary buffer.
-// * (written with the help of ChatGPT 3.5)
-// ****************************************************************************
-uint16_t checksum(unsigned short *buffer, int size) {
-  unsigned long sum = 0;
-  while (size > 1) {
-    sum += *buffer++;
-    size -= 2;
-  }
-  if (size == 1) {
-    sum += *(unsigned char *)buffer;
-  }
-  sum = (sum >> 16) + (sum & 0xFFFF);
-  sum += (sum >> 16);
-  return (unsigned short)(~sum);
-}
+#include <algorithm>
+#include <arpa/inet.h>
+#include <array>
+#include <chrono>
+#include <iostream>
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[]) {
   std::string destIP;
@@ -43,4 +35,126 @@ int main(int argc, char *argv[]) {
       exit(-1);
     }
   }
+
+  if (destIP.empty()) {
+    FATAL << "Error: -t is required" << ENDL;
+    return -1;
+  }
+
+  UniqueFd send_fd(socket(AF_INET, SOCK_RAW, IPPROTO_RAW));
+  if (!send_fd) {
+    FATAL << "Could not open sending socket" << ENDL;
+    return -1;
+  }
+  UniqueFd recv_fd(socket(AF_INET, SOCK_RAW, IPPROTO_ICMP));
+  if (!recv_fd) {
+    FATAL << "Could not open receiving socket" << ENDL;
+    return -1;
+  }
+
+  int one = 1;
+  if (setsockopt(send_fd.get(), IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) <
+      0) {
+    FATAL << "Failed to set socket options" << ENDL;
+    return -1;
+  }
+
+  std::array<std::uint8_t, PACKET_SIZE> send_packet{};
+  send_packet.fill('S');
+  sockaddr_in dest_addr;
+  memset(&dest_addr, 0, sizeof(dest_addr));
+  dest_addr.sin_family = AF_INET;
+  dest_addr.sin_addr.s_addr = inet_addr(destIP.c_str());
+
+  std::uint16_t our_id = static_cast<uint16_t>(getpid() & 0xFFFF);
+
+  DEBUG << "traceroute to " << destIP << ", " << MAX_HOPS << " hops maximum"
+        << ENDL;
+
+  std::size_t current_ttl = STARTING_TTL;
+  bool reached_dest = false;
+
+  while (current_ttl <= MAX_HOPS && !reached_dest) {
+    fill_ip_header(send_packet, destIP, current_ttl);
+    fill_icmp_header(send_packet, current_ttl);
+
+    DEBUG << "Sending probe with TTL=" << current_ttl << ENDL;
+
+    ssize_t sent =
+        sendto(send_fd.get(), send_packet.data(), send_packet.size(), 0,
+               reinterpret_cast<sockaddr *>(&dest_addr), sizeof(dest_addr));
+    if (sent < 0) {
+      FATAL << "Failed sending packet through socket" << ENDL;
+      return 1;
+    }
+    auto start_time = std::chrono::steady_clock::now();
+    bool got_response = false;
+    while (!got_response) {
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed =
+          std::chrono::duration_cast<std::chrono::seconds>(now - start_time)
+              .count();
+
+      if (elapsed >= static_cast<long>(TIMEOUT)) {
+        INFO << current_ttl << " x" << ENDL;
+        break;
+      }
+
+      auto remaining = TIMEOUT - elapsed;
+
+      fd_set read_fds;
+      FD_ZERO(&read_fds);
+
+      timeval timeout;
+      timeout.tv_sec = std::min(5L, static_cast<long>(remaining));
+      timeout.tv_usec = 0;
+
+      int ready =
+          select(recv_fd.get() + 1, &read_fds, nullptr, nullptr, &timeout);
+
+      if (ready < 0) {
+        FATAL << "Select failed" << ENDL;
+        return 1;
+      } else if (ready == 0) {
+        continue;
+      } else if (FD_ISSET(recv_fd.get(), &read_fds)) {
+        std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> recv_buf;
+        sockaddr_in recv_addr;
+        socklen_t addr_len = sizeof(recv_addr);
+
+        ssize_t len =
+            recvfrom(recv_fd.get(), recv_buf.data(), recv_buf.size(), 0,
+                     reinterpret_cast<sockaddr *>(&recv_addr), &addr_len);
+
+        if (len < 0) {
+          FATAL << "failed to receive data from socket" << ENDL;
+          return 1;
+        }
+
+        auto result = parse_icmp_response(
+            recv_buf, len, our_id, static_cast<std::uint16_t>(current_ttl));
+
+        if (result.matches) {
+          std::array<char, INET_ADDRSTRLEN> responder_ip;
+          inet_ntop(AF_INET, &recv_addr.sin_addr, responder_ip.data(),
+                    responder_ip.size());
+
+          DEBUG << current_ttl << "\t" << responder_ip.data();
+
+          if (result.got_to_dest) {
+            DEBUG << "\t(Destination Reached)" << ENDL;
+            reached_dest = true;
+          } else {
+            DEBUG << ENDL;
+          }
+
+          got_response = true;
+        }
+      }
+    }
+    current_ttl++;
+  }
+
+  return 0;
+}
 }
