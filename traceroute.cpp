@@ -41,34 +41,33 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  // Socket which we send ICMP packets from
   UniqueFd send_fd(socket(AF_INET, SOCK_RAW, IPPROTO_RAW));
   if (!send_fd) {
     FATAL << "Could not open sending socket" << ENDL;
     return -1;
   }
+
+  // Socket which we receive ICMP packets from
   UniqueFd recv_fd(socket(AF_INET, SOCK_RAW, IPPROTO_ICMP));
   if (!recv_fd) {
     FATAL << "Could not open receiving socket" << ENDL;
     return -1;
   }
 
-  // int one = 1;
-  // if (setsockopt(send_fd.get(), IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) <
-  //     0) {
-  //   FATAL << "Failed to set socket options" << ENDL;
-  //   return -1;
-  // }
-
   std::array<std::uint8_t, PACKET_SIZE> send_packet{};
-  // send_packet.fill('S');
   memset(send_packet.data() + sizeof(iphdr) + sizeof(icmphdr), 'S',
-         PACKET_SIZE - sizeof(iphdr) - sizeof(icmphdr));
+         PACKET_SIZE - sizeof(iphdr) -
+             sizeof(icmphdr)); // important to set only payload part so kernel
+                               // can set up headers
+
   sockaddr_in dest_addr;
   memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
   dest_addr.sin_addr.s_addr = inet_addr(destIP.c_str());
 
-  std::uint16_t our_id = static_cast<uint16_t>(getpid() & 0xFFFF);
+  std::uint16_t our_id =
+      static_cast<uint16_t>(getpid() & 0xFFFF); // specific to our application
 
   DEBUG << "traceroute to " << destIP << ", " << MAX_HOPS << " hops maximum"
         << ENDL;
@@ -82,9 +81,9 @@ int main(int argc, char *argv[]) {
 
     DEBUG << "Sending probe with TTL=" << current_ttl << ENDL;
 
-    ssize_t sent =
-        sendto(send_fd.get(), send_packet.data(), send_packet.size(), 0,
-               reinterpret_cast<sockaddr *>(&dest_addr), sizeof(dest_addr));
+    ssize_t sent = sendto(send_fd.get(), send_packet.data(), send_packet.size(),
+                          0, reinterpret_cast<sockaddr *>(&dest_addr),
+                          sizeof(dest_addr)); // send ICMP request
     if (sent < 0) {
       FATAL << "Failed sending packet through socket" << ENDL;
       return 1;
@@ -105,27 +104,31 @@ int main(int argc, char *argv[]) {
 
       auto remaining = TIMEOUT - elapsed;
 
+      // do receiving of data asynchronously
       fd_set read_fds;
       FD_ZERO(&read_fds);
-      FD_SET(recv_fd.get(), &read_fds);
+      FD_SET(recv_fd.get(), &read_fds); // watch recv socket
       timeval timeout;
       timeout.tv_sec = std::min(5L, static_cast<long>(remaining));
       timeout.tv_usec = 0;
 
-      int ready =
-          select(recv_fd.get() + 1, &read_fds, nullptr, nullptr, &timeout);
+      int ready = select(recv_fd.get() + 1, &read_fds, nullptr, nullptr,
+                         &timeout); // wait for recv_fd to finish reading
 
-      if (ready < 0) {
+      if (ready < 0) { // error
         FATAL << "Select failed" << ENDL;
         return 1;
-      } else if (ready == 0) {
+      } else if (ready == 0) { // timeout reached and no data, retry
         continue;
-      } else if (FD_ISSET(recv_fd.get(), &read_fds)) {
+      } else if (FD_ISSET(recv_fd.get(),
+                          &read_fds)) { // data is available to read (without
+                                        // any blocking!)
         std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> recv_buf;
         sockaddr_in recv_addr;
         socklen_t addr_len = sizeof(recv_addr);
 
-        ssize_t len =
+        ssize_t len = // this won't block because the data is available (known
+                      // from select)
             recvfrom(recv_fd.get(), recv_buf.data(), recv_buf.size(), 0,
                      reinterpret_cast<sockaddr *>(&recv_addr), &addr_len);
 
@@ -134,17 +137,18 @@ int main(int argc, char *argv[]) {
           return 1;
         }
 
+        // extract important information
         auto result = parse_icmp_response(
             recv_buf, len, our_id, static_cast<std::uint16_t>(current_ttl));
 
-        if (result.matches) {
+        if (result.matches) { // we got an ICMP response
           std::array<char, INET_ADDRSTRLEN> responder_ip;
           inet_ntop(AF_INET, &recv_addr.sin_addr, responder_ip.data(),
                     responder_ip.size());
 
           std::cout << current_ttl << "\t" << responder_ip.data();
 
-          if (result.got_to_dest) {
+          if (result.got_to_dest) { // we have finished our traceroute
             reached_dest = true;
             std::cout << "\t(Destination Reached)" << std::endl;
           } else {
@@ -155,7 +159,7 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-    current_ttl++;
+    current_ttl++; // increment TTL if there was a timeout
   }
   return 0;
 }

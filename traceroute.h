@@ -2,17 +2,12 @@
 #define HEADER_H
 
 #include <arpa/inet.h>
-#include <array>
-#include <chrono>
 #include <csignal>
-#include <cstddef>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
-#include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 
