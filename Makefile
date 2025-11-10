@@ -6,19 +6,19 @@
 #  Copyright 2012 Colorado School of Mines. All rights reserved.
 #
 
-USERNAME = change-me
+USERNAME = noah-braunfeld
 
 CXX = g++
 LD = g++
-CXXFLAGS = -g3 -std=c++17
+CXXFLAGS = -g3 -std=c++17 -Wall -Wextra -Wpedantic -Werror
 LDFLAGS = 
 
 #
 # You should be able to add object files here without changing anything else
 #
 TARGET = traceroute
-OBJ_FILES = ${TARGET}.o
-INC_FILES = ${TARGET}.h
+OBJ_FILES = ${TARGET}.o utility.o
+INC_FILES = ${TARGET}.h utility.h
 
 #
 # Any libraries we might need.

@@ -1,0 +1,38 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-g3",
+      "-std=c++17",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Werror",
+      "-o",
+      "traceroute.o",
+      "traceroute.cpp"
+    ],
+    "directory": "/home/nb/CSCI471/traceroute-skel",
+    "file": "/home/nb/CSCI471/traceroute-skel/traceroute.cpp",
+    "output": "/home/nb/CSCI471/traceroute-skel/traceroute.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-g3",
+      "-std=c++17",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Werror",
+      "-o",
+      "utility.o",
+      "utility.cpp"
+    ],
+    "directory": "/home/nb/CSCI471/traceroute-skel",
+    "file": "/home/nb/CSCI471/traceroute-skel/utility.cpp",
+    "output": "/home/nb/CSCI471/traceroute-skel/utility.o"
+  }
+]
