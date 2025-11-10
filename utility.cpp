@@ -3,7 +3,6 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
-#include <ratio>
 #include <stdexcept>
 #include <string>
 
@@ -52,27 +51,6 @@ UniqueFd::~UniqueFd() {
 int UniqueFd::get() const { return _fd; }
 UniqueFd::operator bool() const { return _fd >= 0; }
 
-in_addr resolve_ipv4_target(std::string_view host) {
-  addrinfo hints{};
-  hints.ai_family = AF_INET; // ipv4
-  hints.ai_socktype = SOCK_DGRAM;
-
-  addrinfo *res = nullptr;
-  const std::string host_s{host};
-  int err = getaddrinfo(host_s.c_str(), nullptr, &hints, &res);
-  if (err != 0) {
-    throw std::runtime_error(std::string{"getaddrinfo: "} + gai_strerror(err));
-  }
-  in_addr addr = reinterpret_cast<sockaddr_in *>(res->ai_addr)->sin_addr;
-  freeaddrinfo(res);
-  return addr;
-}
-
-template <typename Timer, typename Duration>
-double time_between_ms(const std::chrono::time_point<Timer, Duration> &start,
-                       const std::chrono::time_point<Timer, Duration> &end) {
-  return std::chrono::duration<double, std::milli>(end - start).count();
-}
 IcmpMatchResult
 parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> &packet,
                     ssize_t len, std::uint16_t our_id,
@@ -137,14 +115,14 @@ void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
   iphdr *ip = reinterpret_cast<iphdr *>(packet.data());
 
   ip->version = 4;
-  ip->ihl = 5; // Header length in 32-bit words (5 = 20 bytes)
+  ip->ihl = 5; // header length is 32 bits (2^5)
   ip->tos = 0;
-  ip->tot_len = htons(PACKET_SIZE); // Important: network byte order!
-  // ip->id - kernel fills this with IPPROTO_RAW
+  ip->tot_len = htons(PACKET_SIZE); // network byte order
+  // ip->id - kernel fills
   ip->frag_off = 0;
-  ip->ttl = ttl; // This is what we'll increment!
+  ip->ttl = ttl;
   ip->protocol = IPPROTO_ICMP;
-  // ip->check - kernel fills this
+  // ip->check - kernel fills
   const std::string dest_ip_s{dest_ip};
   ip->daddr = inet_addr(dest_ip_s.c_str());
 }
