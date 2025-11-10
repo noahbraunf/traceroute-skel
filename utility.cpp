@@ -158,5 +158,5 @@ void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
   icmp->un.echo.sequence = htons(sequence);
   icmp->checksum = 0;
   icmp->checksum = checksum(reinterpret_cast<unsigned short *>(icmp),
-                            sizeof(icmphdr) + PAYLOAD_SIZE);
+                            PACKET_SIZE - sizeof(icmphdr));
 }

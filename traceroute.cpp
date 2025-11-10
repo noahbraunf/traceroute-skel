@@ -60,7 +60,9 @@ int main(int argc, char *argv[]) {
   // }
 
   std::array<std::uint8_t, PACKET_SIZE> send_packet{};
-  send_packet.fill('S');
+  // send_packet.fill('S');
+  memset(send_packet.data() + sizeof(iphdr) + sizeof(icmphdr), 'S',
+         PACKET_SIZE - sizeof(iphdr) - sizeof(icmphdr));
   sockaddr_in dest_addr;
   memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
