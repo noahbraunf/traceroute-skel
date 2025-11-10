@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
       fd_set read_fds;
       FD_ZERO(&read_fds);
-
+      FD_SET(recv_fd.get(), &read_fds);
       timeval timeout;
       timeout.tv_sec = std::min(5L, static_cast<long>(remaining));
       timeout.tv_usec = 0;
@@ -139,13 +139,14 @@ int main(int argc, char *argv[]) {
           inet_ntop(AF_INET, &recv_addr.sin_addr, responder_ip.data(),
                     responder_ip.size());
 
-          DEBUG << current_ttl << "\t" << responder_ip.data();
+          std::cout << "No response with TTL of " << current_ttl << "\t"
+                    << responder_ip.data();
 
           if (result.got_to_dest) {
-            DEBUG << "\t(Destination Reached)" << ENDL;
             reached_dest = true;
+            std::cout << "\t(Destination Reached)" << std::endl;
           } else {
-            DEBUG << ENDL;
+            std::cout << std::endl;
           }
 
           got_response = true;
@@ -154,7 +155,5 @@ int main(int argc, char *argv[]) {
     }
     current_ttl++;
   }
-
   return 0;
-}
 }

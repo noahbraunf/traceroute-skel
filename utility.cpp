@@ -74,7 +74,7 @@ double time_between_ms(const std::chrono::time_point<Timer, Duration> &start,
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 IcmpMatchResult
-parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> packet,
+parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> &packet,
                     ssize_t len, std::uint16_t our_id,
                     std::uint16_t expected_seq) {
   IcmpMatchResult result{};
@@ -126,13 +126,13 @@ parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> packet,
 
       if (innerid == our_id && innerseq == expected_seq) {
         result.matches = true;
-        result.got_to_dest = true;
+        result.got_to_dest = false;
       }
     }
   }
   return result;
 }
-void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> packet,
+void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
                     const std::string_view dest_ip, int ttl) {
   iphdr *ip = reinterpret_cast<iphdr *>(packet.data());
 
@@ -148,7 +148,7 @@ void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> packet,
   // ip->saddr - kernel fills this
   ip->daddr = inet_addr(dest_ip.data());
 }
-void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> packet,
+void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
                       int sequence) {
   icmphdr *const icmp =
       reinterpret_cast<icmphdr *>(packet.data() + sizeof(iphdr));
@@ -156,6 +156,7 @@ void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> packet,
   icmp->code = 0;
   icmp->un.echo.id = htons(getpid() & 0xFFFF);
   icmp->un.echo.sequence = htons(sequence);
+  icmp->checksum = 0;
   icmp->checksum = checksum(reinterpret_cast<unsigned short *>(icmp),
                             sizeof(icmphdr) + PAYLOAD_SIZE);
 }

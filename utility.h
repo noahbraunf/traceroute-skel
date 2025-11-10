@@ -21,7 +21,7 @@ constexpr std::size_t PACKET_SIZE = 64;
 constexpr std::size_t PAYLOAD_SIZE = 36; // 64 - 20 for IP - 8 for ICMP
 constexpr std::size_t STARTING_TTL = 2;
 constexpr std::size_t RECIEVE_BUFFER_SIZE = 1000;
-constexpr std::size_t TIMEOUT = 1; // 15
+constexpr std::size_t TIMEOUT = 15; // seconds
 uint16_t checksum(unsigned short *buffer, int size);
 class UniqueFd {
 public:
@@ -52,13 +52,13 @@ template <typename Timer, typename Duration>
 double time_between_ms(const std::chrono::time_point<Timer, Duration> &start,
                        const std::chrono::time_point<Timer, Duration> &end);
 
-void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> packet,
+void fill_ip_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
                     const std::string_view dest_ip, int ttl);
 
-void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> packet,
+void fill_icmp_header(std::array<std::uint8_t, PACKET_SIZE> &packet,
                       int sequence);
 IcmpMatchResult
-parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> packet,
+parse_icmp_response(const std::array<std::uint8_t, RECIEVE_BUFFER_SIZE> &packet,
                     ssize_t len, std::uint16_t our_id,
                     std::uint16_t expected_seq);
 #endif
